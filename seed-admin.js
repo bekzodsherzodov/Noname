@@ -1,0 +1,10 @@
+import 'dotenv/config';
+import argon2 from 'argon2';
+import {randomUUID} from 'node:crypto';
+import pg from 'pg';
+const {Pool}=pg; const pool=new Pool({connectionString:process.env.DATABASE_URL});
+const username=(process.env.ADMIN_USERNAME||'admin').toLowerCase();
+const password=process.env.ADMIN_PASSWORD||'ChangeMe_12345678';
+const hash=await argon2.hash(password,{type:argon2.argon2id});
+await pool.query(`INSERT INTO users(id,username,password_hash,role,trial_until,profile) VALUES($1,$2,$3,'admin',now()+interval '3650 days',$4) ON CONFLICT(username) DO UPDATE SET password_hash=EXCLUDED.password_hash,role='admin'`,[randomUUID(),username,hash,JSON.stringify({name:'Administrator'})]);
+await pool.end(); console.log(`Admin ready: ${username}`);

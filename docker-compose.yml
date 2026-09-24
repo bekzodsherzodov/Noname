@@ -1,0 +1,52 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_DB: daftar
+      POSTGRES_USER: daftar
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U daftar -d daftar"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: node:22-alpine
+    restart: unless-stopped
+    working_dir: /app
+    command: sh -c "npm install && npm run migrate && npm run seed-admin && npm start"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://daftar:${DB_PASSWORD}@db:5432/daftar
+      NODE_ENV: production
+      PORT: 3000
+    volumes:
+      - ./:/app
+      - uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  postgres_data:
+  uploads:
+  caddy_data:
+  caddy_config:
